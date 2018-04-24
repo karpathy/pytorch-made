@@ -97,7 +97,7 @@ if __name__ == '__main__':
     # check both natural ordering and not
     for natural in [True, False]:
         # check a few configurations of hidden units, depths 1,2,3
-        for hiddens in [[200], [200,220], [200,220,230]]:
+        for hiddens in [[], [200], [200,220], [200,220,230]]:
         
             print("checking hiddens %s with natural = %s" % (hiddens, natural))
             model = MADE(D, hiddens, D, natural_ordering=natural)
