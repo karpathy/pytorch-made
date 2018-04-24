@@ -15,7 +15,7 @@ from made import MADE
 
 # ------------------------------------------------------------------------------
 def run_epoch(split, upto=None):
-    torch._C.set_grad_enabled(split == 'train') # enable/disable grad for efficiency of forwarding test batches
+    torch.set_grad_enabled(split=='train') # enable/disable grad for efficiency of forwarding test batches
     model.train() if split == 'train' else model.eval()
     nsamples = 1 if split == 'train' else args.samples
     x = xtr if split == 'train' else xte
