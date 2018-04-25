@@ -27,7 +27,7 @@ which gives a much better test loss of `79.3`, but at the cost of multiple forwa
 
 The core class is `MADE`, found in `made.py`. It inherits from PyTorch `nn.Module` so you can "slot it into" larger architectures quite easily. To instantiate MADE on 1D inputs of MNIST digits for example (which have `28*28` pixels), using one hidden layer of 500 neurons, and using a single but random ordering we would do:
 
-```
+```python
 model = MADE(28*28, [500], 28*28, num_masks=1, natural_ordering=False)
 ```
 
