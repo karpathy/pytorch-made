@@ -23,7 +23,7 @@ python run.py --data-path binarized_mnist.npz -q 500 -n 10 -s 10
 
 which gives a much better test loss of `79.3`, but at the cost of multiple forward passes. I was not able to reproduce single-forward-pass gains that the paper alludes to when training with multiple masks, might be doing something wrong.
 
-# usage
+## usage
 
 The core class is `MADE`, found in `made.py`. It inherits from PyTorch `nn.Module` so you can "slot it into" larger architectures quite easily. To instantiate MADE on 1D inputs of MNIST digits for example (which have `28*28` pixels), using one hidden layer of 500 neurons, and using a single but random ordering we would do:
 
