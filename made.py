@@ -30,13 +30,19 @@ class MADE(nn.Module):
         nin: integer; number of inputs
         hidden sizes: a list of integers; number of units in hidden layers
         nout: integer; number of outputs, which usually collectively parameterize some kind of 1D distribution
+              note: if nout is e.g. 2x larger than nin (perhaps the mean and std), then the first nin
+              will be all the means and the second nin will be stds. i.e. output dimensions depend on the
+              same input dimensions in "chunks" and should be carefully decoded downstream appropriately.
+              the output of running the tests for this file makes this a bit more clear with examples.
         num_masks: can be used to train ensemble over orderings/connections
         natural_ordering: force natural ordering of dimensions, don't use random permutations
         """
         
         super().__init__()
         self.nin = nin
+        self.nout = nout
         self.hidden_sizes = hidden_sizes
+        assert self.nout % self.nin == 0, "nout must be integer multiple of nin"
         
         # define a simple MLP neural net
         self.net = []
@@ -76,6 +82,12 @@ class MADE(nn.Module):
         masks = [self.m[l-1][:,None] <= self.m[l][None,:] for l in range(L)]
         masks.append(self.m[L-1][:,None] < self.m[-1][None,:])
         
+        # handle the case where nout = nin * k, for integer k > 1
+        if self.nout > self.nin:
+            k = int(self.nout / self.nin)
+            # replicate the mask across the other outputs
+            masks[-1] = np.concatenate([masks[-1]]*k, axis=1)
+        
         # set the masks in all MaskedLinear layers
         layers = [l for l in self.net.modules() if isinstance(l, MaskedLinear)]
         for l,m in zip(layers, masks):
@@ -94,31 +106,39 @@ if __name__ == '__main__':
     rng = np.random.RandomState(14)
     x = (rng.rand(1, D) > 0.5).astype(np.float32)
     
-    # check both natural ordering and not
-    for natural in [True, False]:
-        # check a few configurations of hidden units, depths 1,2,3
-        for hiddens in [[], [200], [200,220], [200,220,230]]:
+    configs = [
+        (D, [], D, False),                 # test various hidden sizes
+        (D, [200], D, False),
+        (D, [200, 220], D, False),
+        (D, [200, 220, 230], D, False),
+        (D, [200, 220], D, True),          # natural ordering test
+        (D, [200, 220], 2*D, True),       # test nout > nin
+        (D, [200, 220], 3*D, False),       # test nout > nin
+    ]
+    
+    for nin, hiddens, nout, natural_ordering in configs:
         
-            print("checking hiddens %s with natural = %s" % (hiddens, natural))
-            model = MADE(D, hiddens, D, natural_ordering=natural)
-            
-            # run backpropagation for each dimension to compute what other
-            # dimensions it depends on.
-            res = []
-            for k in range(D):
-                xtr = Variable(torch.from_numpy(x), requires_grad=True)
-                xtrhat = model(xtr)
-                loss = xtrhat[0,k]
-                loss.backward()
-                
-                depends = (xtr.grad[0].numpy() != 0).astype(np.uint8)
-                depends_ix = list(np.where(depends)[0])
-                isok = k not in depends_ix
-                
-                res.append((len(depends_ix), k, depends_ix, isok))
-            
-            # pretty print the dependencies
-            res.sort()
-            for nl, k, ix, isok in res:
-                print("output %d depends on inputs: %30s : %s" % (k, ix, "OK" if isok else "NOTOK"))
+        print("checking nin %d, hiddens %s, nout %d, natural %s" % 
+             (nin, hiddens, nout, natural_ordering))
+        model = MADE(nin, hiddens, nout, natural_ordering=natural_ordering)
         
+        # run backpropagation for each dimension to compute what other
+        # dimensions it depends on.
+        res = []
+        for k in range(nout):
+            xtr = Variable(torch.from_numpy(x), requires_grad=True)
+            xtrhat = model(xtr)
+            loss = xtrhat[0,k]
+            loss.backward()
+            
+            depends = (xtr.grad[0].numpy() != 0).astype(np.uint8)
+            depends_ix = list(np.where(depends)[0])
+            isok = k % nin not in depends_ix
+            
+            res.append((len(depends_ix), k, depends_ix, isok))
+        
+        # pretty print the dependencies
+        res.sort()
+        for nl, k, ix, isok in res:
+            print("output %2d depends on inputs: %30s : %s" % (k, ix, "OK" if isok else "NOTOK"))
+    
