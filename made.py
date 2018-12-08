@@ -76,7 +76,7 @@ class MADE(nn.Module):
         self.m[-1] = self.orderings[self.next_ordering]
         self.next_ordering = (self.next_ordering + 1) % len(self.orderings)
         for l in range(L):
-            self.m[l] = rng.randint(self.m[l-1].min(), self.nin-1, size=self.hidden_sizes[l])
+            self.m[l] = rng.randint(self.m[l-1].min(), np.max(self.m[-1]), size=self.hidden_sizes[l])
 
         # construct the mask matrices
         masks = [self.m[l-1][:,None] <= self.m[l][None,:] for l in range(L)]
